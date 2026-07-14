@@ -1,0 +1,18 @@
+cd /workspaces/Arabic-Games-
+
+rm -rf /tmp/arabic-games-app
+mkdir -p /tmp/arabic-games-app
+
+unzip -o Arabic-Games-Translator-Android-v1.0.zip \
+  -d /tmp/arabic-games-app
+
+cp -a /tmp/arabic-games-app/Arabic-Games-/. .
+
+rm -rf /tmp/arabic-games-app
+rm -f Arabic-Games-Translator-Android-v1.0.zip
+
+chmod +x gradlew
+
+git add -A
+git commit -m "Add Arabic Games Translator Android app"
+git push origin main
