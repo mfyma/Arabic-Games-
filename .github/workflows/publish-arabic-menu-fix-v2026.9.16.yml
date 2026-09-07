@@ -1,0 +1,144 @@
+name: Publish Arabic Menu Fix v2026.9.16
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/publish-arabic-menu-fix-v2026.9.16.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Rebuild from verified working v2026.9.13 backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/ar916 /tmp/ar916.zip v2
+          mkdir -p /tmp/ar916 v2
+          git show backup-working-arabic-v2026.9.13:translation_ar.zip > /tmp/ar913.zip
+          unzip -q /tmp/ar913.zip -d /tmp/ar916
+
+          MODDIR="/tmp/ar916/translation_ar"
+          test -f "$MODDIR/ar.rpym"
+          test -f "$MODDIR/config.rpym"
+          test -f "$MODDIR/manifest.json"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          mod = Path('/tmp/ar916/translation_ar')
+          ar = mod / 'ar.rpym'
+          text = ar.read_text(encoding='utf-8')
+
+          # Improve the already-present generic Continue translation.
+          text = text.replace('    old "Continue"\n    new "يكمل"', '    old "Continue"\n    new "متابعة"')
+          ar.write_text(text, encoding='utf-8')
+
+          # Keep menu/UI fixes isolated from the verified working RTL layer.
+          menu_fix = r'''# Arabic main-menu/UI compatibility patch based on verified v2026.9.13.
+# Adds only missing UI strings and font overrides for menu/navigation styles.
+
+translate ar strings:
+    old "New game"
+    new "لعبة جديدة"
+
+    old "New Game"
+    new "لعبة جديدة"
+
+    old "Load"
+    new "تحميل"
+
+    old "Settings"
+    new "الإعدادات"
+
+    old "Gallery"
+    new "المعرض"
+
+    old "Help"
+    new "المساعدة"
+
+    old "Mods"
+    new "التعديلات"
+
+    old "Customization"
+    new "التخصيص"
+
+    old "Language"
+    new "اللغة"
+
+    old "Back"
+    new "رجوع"
+
+    old "Support"
+    new "الدعم"
+
+translate ar python:
+    # The working v2026.9.13 already defines _ar_font_group in config.rpym.
+    # Apply it directly to menu/navigation styles when those styles exist.
+    for _style_name in [
+        "navigation_button_text",
+        "main_menu_button_text",
+        "game_menu_button_text",
+        "return_button_text",
+        "button_text",
+    ]:
+        try:
+            _st = getattr(style, _style_name)
+            _base = getattr(_st, "font", "DejaVuSans.ttf")
+            _st.font = _ar_font_group(_base)
+            _st.shaper = "harfbuzz"
+            _st.reading_order = "wrtl"
+        except Exception:
+            pass
+'''
+          (mod / 'menu_fix.rpym').write_text(menu_fix, encoding='utf-8')
+
+          inner = json.loads((mod / 'manifest.json').read_text(encoding='utf-8'))
+          inner['version'] = '2026.9.16'
+          inner['description'] = 'Arabic v2026.9.13 working base + main-menu translation/font fix.'
+          (mod / 'manifest.json').write_text(json.dumps(inner, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
+
+          outer = {
+              'name': 'Kunoichi Trainer Arabic v2',
+              'mods': [{
+                  'id': 'translation_ar',
+                  'name': 'Translation: Arabic (100%)',
+                  'version': '2026.9.16',
+                  'description': 'Built from verified working v2026.9.13. Adds missing main-menu translations and Arabic font support for navigation styles.',
+                  'game_version': '0.32.1',
+                  'no_reload': True,
+                  'image': 'https://flagcdn.com/w640/eg.webp',
+                  'language': 'Arabic',
+                  'language_code': 'ar',
+                  'file_name': 'translation_ar.zip'
+              }]
+          }
+          Path('v2/manifest.json').write_text(json.dumps(outer, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
+          PY
+
+          (cd /tmp/ar916 && zip -qr "$GITHUB_WORKSPACE/v2/translation_ar.zip" translation_ar)
+          unzip -l v2/translation_ar.zip | sed -n '1,30p'
+
+      - name: Commit v2 source and package
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add v2/manifest.json v2/translation_ar.zip
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Publish Arabic v2026.9.16 menu/font fix from verified backup"
+            git push origin HEAD:main
+          fi
