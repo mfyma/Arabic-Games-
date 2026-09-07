@@ -1,0 +1,4 @@
+Direct backup file location:
+https://github.com/mfyma/Arabic-Games-/blob/backup-working-arabic-v2026.9.13/translation_ar.zip
+
+Use Download raw file from GitHub.
