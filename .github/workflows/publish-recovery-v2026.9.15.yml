@@ -1,0 +1,84 @@
+name: Publish Arabic Recovery v2026.9.15
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-recovery-v2026.9.15.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main with history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Rebuild from verified working backup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin backup-working-arabic-v2026.9.13
+          git show origin/backup-working-arabic-v2026.9.13:translation_ar.zip > /tmp/backup-9.13.zip
+
+          rm -rf /tmp/ar-recovery
+          mkdir -p /tmp/ar-recovery
+          python - <<'PY'
+          import json, zipfile
+          from pathlib import Path
+
+          src = Path('/tmp/backup-9.13.zip')
+          work = Path('/tmp/ar-recovery')
+          out = Path('translation_ar.zip')
+
+          with zipfile.ZipFile(src, 'r') as z:
+              z.extractall(work)
+
+          mod = work / 'translation_ar'
+          manifest_path = mod / 'manifest.json'
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          manifest['version'] = '2026.9.15'
+          manifest['description'] = 'Recovery sync based exactly on the verified working v2026.9.13 build. No Arabic code or translation changes; version bump only to verify updater connectivity.'
+          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
+
+          with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
+              for p in sorted(mod.rglob('*')):
+                  if p.is_file():
+                      z.write(p, p.relative_to(work).as_posix())
+
+          # Verify all functional files are byte-identical to the working backup.
+          with zipfile.ZipFile(src, 'r') as old, zipfile.ZipFile(out, 'r') as new:
+              for name in ['translation_ar/ar.rpym', 'translation_ar/config.rpym', 'translation_ar/lang_name.rpym']:
+                  assert old.read(name) == new.read(name), name
+              m = json.loads(new.read('translation_ar/manifest.json').decode('utf-8'))
+              assert m['version'] == '2026.9.15'
+          PY
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('manifest.json')
+          data = json.loads(p.read_text(encoding='utf-8'))
+          mod = data['mods'][0]
+          mod['version'] = '2026.9.15'
+          mod['description'] = 'Recovery sync based exactly on verified working v2026.9.13. No functional Arabic changes; updater-connectivity test.'
+          mod['game_version'] = '0.32.1'
+          mod['file_name'] = 'translation_ar.zip'
+          p.write_text(json.dumps(data, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
+          PY
+
+      - name: Commit recovery package to same source URL
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json translation_ar.zip
+          git commit -m "Publish recovery sync v2026.9.15 from working v2026.9.13 backup"
+          git pull --rebase origin main
+          git push origin HEAD:main
