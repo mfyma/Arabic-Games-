@@ -46,8 +46,8 @@ jobs:
           manifest = {
               "id": "translation_ar",
               "name": "Translation: Arabic (100%)",
-              "version": "2026.9.12",
-              "description": "Arabic translation for Kunoichi Trainer 0.32.1 with RTL/font compatibility layer.",
+              "version": "2026.9.13",
+              "description": "Arabic translation for Kunoichi Trainer 0.32.1. Hotfix for Arabic font/RTL compatibility.",
               "game_version": "0.32.1",
               "no_reload": True,
               "image": "https://flagcdn.com/w640/eg.webp",
@@ -66,28 +66,35 @@ jobs:
 
           config_lines = [
               "# Arabic rendering compatibility layer for Kunoichi Trainer 0.32.1 / Ren'Py 8.4.1.",
+              "# Hotfix: gui.main_font is not defined in this game build.",
               "",
               "translate ar python:",
               "    from renpy.text.font import FontGroup",
               "",
-              "    def _ar_font_group(base_font):",
+              "    def _ar_font_group(base_font=\"DejaVuSans.ttf\"):",
               "        if not isinstance(base_font, str):",
               "            base_font = \"DejaVuSans.ttf\"",
-              "",
               "        return (",
               "            FontGroup()",
               "            .add(\"fonts/AdobeArabic-Regular.ttf\", 0x0600, 0x06ff)",
               "            .add(base_font, None, None)",
               "        )",
               "",
-              "    gui.main_font = _ar_font_group(gui.main_font)",
-              "    gui.text_font = _ar_font_group(gui.text_font)",
-              "    gui.name_text_font = _ar_font_group(gui.name_text_font)",
-              "    gui.interface_text_font = _ar_font_group(gui.interface_text_font)",
-              "    gui.button_text_font = _ar_font_group(gui.button_text_font)",
-              "    gui.choice_button_text_font = _ar_font_group(gui.choice_button_text_font)",
-              "    gui.dialogue_text_font = _ar_font_group(gui.dialogue_text_font)",
-              "    gui.hand_written_font = _ar_font_group(gui.hand_written_font)",
+              "    for _font_attr in [",
+              "        \"text_font\",",
+              "        \"name_text_font\",",
+              "        \"interface_text_font\",",
+              "        \"button_text_font\",",
+              "        \"choice_button_text_font\",",
+              "        \"dialogue_text_font\",",
+              "        \"system_font\",",
+              "        \"hand_written_font\",",
+              "    ]:",
+              "        if hasattr(gui, _font_attr):",
+              "            try:",
+              "                setattr(gui, _font_attr, _ar_font_group(getattr(gui, _font_attr)))",
+              "            except Exception:",
+              "                pass",
               "",
               "translate ar style default:",
               "    shaper \"harfbuzz\"",
@@ -100,6 +107,9 @@ jobs:
               "    textalign 1.0",
               "",
               "translate ar style choice_button_text:",
+              "    textalign 1.0",
+              "",
+              "translate ar style button_text:",
               "    textalign 1.0",
               "",
           ]
@@ -118,7 +128,7 @@ jobs:
               }
               assert set(check.namelist()) == expected, check.namelist()
               internal = json.loads(check.read("translation_ar/manifest.json").decode("utf-8"))
-              assert internal["version"] == "2026.9.12"
+              assert internal["version"] == "2026.9.13"
               assert internal["game_version"] == "0.32.1"
 
           out.replace(src)
@@ -134,5 +144,5 @@ jobs:
             echo "translation_ar.zip is already current"
             exit 0
           fi
-          git commit -m "Rebuild Arabic mod package for Kunoichi Trainer 0.32.1"
+          git commit -m "Rebuild Arabic mod package v2026.9.13"
           git push
