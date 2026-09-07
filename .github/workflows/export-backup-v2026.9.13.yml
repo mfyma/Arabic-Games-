@@ -1,0 +1,32 @@
+name: Export Arabic Backup v2026.9.13
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/export-backup-v2026.9.13.yml"
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout backup branch
+        uses: actions/checkout@v4
+        with:
+          ref: backup-working-arabic-v2026.9.13
+
+      - name: Verify backup package
+        shell: bash
+        run: |
+          test -f translation_ar.zip
+          sha256sum translation_ar.zip
+          cp translation_ar.zip Kunoichi-Arabic-v2026.9.13-BACKUP.zip
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kunoichi-Arabic-v2026.9.13-BACKUP
+          path: Kunoichi-Arabic-v2026.9.13-BACKUP.zip
+          if-no-files-found: error
+          retention-days: 30
