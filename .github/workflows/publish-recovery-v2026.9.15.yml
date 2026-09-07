@@ -1,4 +1,4 @@
-name: Publish Arabic v2026.9.16
+name: Publish Arabic v2026.9.17
 
 on:
   push:
@@ -19,22 +19,22 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Rebuild from verified working backup with menu fixes
+      - name: Rebuild from verified working v2026.9.13 with English menu fallback
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin backup-working-arabic-v2026.9.13
           git show origin/backup-working-arabic-v2026.9.13:translation_ar.zip > /tmp/backup-9.13.zip
 
-          rm -rf /tmp/ar916
-          mkdir -p /tmp/ar916
+          rm -rf /tmp/ar917
+          mkdir -p /tmp/ar917
           python - <<'PY'
-          import json, zipfile
+          import json, re, zipfile
           from pathlib import Path
 
           src = Path('/tmp/backup-9.13.zip')
-          work = Path('/tmp/ar916')
-          out = Path('v2/translation_ar.zip')
+          work = Path('/tmp/ar917')
+          out = Path('v3/translation_ar.zip')
           out.parent.mkdir(parents=True, exist_ok=True)
 
           with zipfile.ZipFile(src, 'r') as z:
@@ -42,17 +42,51 @@ jobs:
 
           mod = work / 'translation_ar'
           ar_path = mod / 'ar.rpym'
-          ar_text = ar_path.read_text(encoding='utf-8')
-          ar_text = ar_text.replace('    old "Continue"\n    new "يكمل"', '    old "Continue"\n    new "متابعة"')
-          ar_path.write_text(ar_text, encoding='utf-8')
+          text = ar_path.read_text(encoding='utf-8')
 
-          menu_fix = '''# Arabic main-menu/UI compatibility patch based on verified v2026.9.13.\n\ntranslate ar strings:\n    old "New game"\n    new "لعبة جديدة"\n\n    old "New Game"\n    new "لعبة جديدة"\n\n    old "Load"\n    new "تحميل"\n\n    old "Settings"\n    new "الإعدادات"\n\n    old "Gallery"\n    new "المعرض"\n\n    old "Help"\n    new "المساعدة"\n\n    old "Mods"\n    new "التعديلات"\n\n    old "Customization"\n    new "التخصيص"\n\n    old "Language"\n    new "اللغة"\n\n    old "Back"\n    new "رجوع"\n\n    old "Support"\n    new "الدعم"\n\ntranslate ar python:\n    for _style_name in [\n        "navigation_button_text",\n        "main_menu_button_text",\n        "game_menu_button_text",\n        "return_button_text",\n        "button_text",\n    ]:\n        try:\n            _st = getattr(style, _style_name)\n            _base = getattr(_st, "font", "DejaVuSans.ttf")\n            _st.font = _ar_font_group(_base)\n            _st.shaper = "harfbuzz"\n            _st.reading_order = "wrtl"\n        except Exception:\n            pass\n'''
-          (mod / 'menu_fix.rpym').write_text(menu_fix, encoding='utf-8')
+          # These strings use game/menu styles that do not render Arabic glyphs on Android.
+          # Keep the rest of the game Arabic; only force these proven-broken UI labels to English.
+          fallbacks = {
+              'Continue': 'Continue',
+              'New game': 'New game',
+              'New Game': 'New Game',
+              'Load': 'Load',
+              'Settings': 'Settings',
+              'Gallery': 'Gallery',
+              'Help': 'Help',
+              'Mods': 'Mods',
+              'Customization': 'Customization',
+              'Back': 'Back',
+          }
 
+          def replace_translation_block(src_text, old, new):
+              # Replace only the translated value paired with the exact old string.
+              pat = re.compile(
+                  r'(\n\s*old\s+"' + re.escape(old) + r'"\s*\n\s*new\s+")([^"\n]*)(")'
+              )
+              updated, count = pat.subn(lambda m: m.group(1) + new + m.group(3), src_text)
+              return updated, count
+
+          counts = {}
+          for old, new in fallbacks.items():
+              text, count = replace_translation_block(text, old, new)
+              counts[old] = count
+
+          # Add fallback entries only when the source did not already contain that key.
+          missing = [k for k, c in counts.items() if c == 0]
+          if missing:
+              extra = ['\n# English fallback for Arabic-unsupported menu styles.', 'translate ar strings:']
+              for key in missing:
+                  extra += [f'    old {json.dumps(key)}', f'    new {json.dumps(fallbacks[key])}', '']
+              text += '\n'.join(extra) + '\n'
+
+          ar_path.write_text(text, encoding='utf-8')
+
+          # Keep only the proven v2026.9.13 RTL/font layer. Do not add risky navigation style overrides.
           inner_path = mod / 'manifest.json'
           inner = json.loads(inner_path.read_text(encoding='utf-8'))
-          inner['version'] = '2026.9.16'
-          inner['description'] = 'Verified v2026.9.13 base with main-menu Arabic translation/font fixes.'
+          inner['version'] = '2026.9.17'
+          inner['description'] = 'Verified v2026.9.13 Arabic base. Main-menu labels that render as squares now fall back to English; all working Arabic text remains Arabic.'
           inner_path.write_text(json.dumps(inner, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
 
           with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
@@ -61,12 +95,12 @@ jobs:
                       z.write(p, p.relative_to(work).as_posix())
 
           outer = {
-              'name': 'Kunoichi Trainer Arabic v2',
+              'name': 'Kunoichi Trainer Arabic v3',
               'mods': [{
                   'id': 'translation_ar',
                   'name': 'Translation: Arabic (100%)',
-                  'version': '2026.9.16',
-                  'description': 'Verified v2026.9.13 base with missing main-menu translations and Arabic font support for navigation styles.',
+                  'version': '2026.9.17',
+                  'description': 'Stable v2026.9.13 Arabic base with English fallback only for menu labels that display as squares on Android.',
                   'game_version': '0.32.1',
                   'no_reload': True,
                   'image': 'https://flagcdn.com/w640/eg.webp',
@@ -75,24 +109,28 @@ jobs:
                   'file_name': 'translation_ar.zip'
               }]
           }
-          Path('v2/manifest.json').write_text(json.dumps(outer, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
+          Path('v3/manifest.json').write_text(json.dumps(outer, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
 
+          # Sanity checks.
           with zipfile.ZipFile(out, 'r') as z:
               names = set(z.namelist())
               assert 'translation_ar/ar.rpym' in names
               assert 'translation_ar/config.rpym' in names
               assert 'translation_ar/lang_name.rpym' in names
-              assert 'translation_ar/menu_fix.rpym' in names
               assert 'translation_ar/manifest.json' in names
+              final_ar = z.read('translation_ar/ar.rpym').decode('utf-8')
+              for key, val in fallbacks.items():
+                  assert f'old "{key}"' in final_ar
+          print('Patched translation counts:', counts)
           PY
 
-      - name: Commit v2 package and fresh source URL
+      - name: Commit v3 package and fresh source URL
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add v2/manifest.json v2/translation_ar.zip
-          git commit -m "Publish Arabic v2026.9.16 from verified v2026.9.13 base"
+          git add v3/manifest.json v3/translation_ar.zip
+          git commit -m "Publish Arabic v2026.9.17 English menu fallback"
           git pull --rebase origin main
           git push origin HEAD:main
