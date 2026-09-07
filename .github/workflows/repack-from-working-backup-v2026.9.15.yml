@@ -1,0 +1,171 @@
+name: Repack Arabic Mod From Working Backup v2026.9.15
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/repack-from-working-backup-v2026.9.15.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch known-working backup branch
+        run: git fetch origin backup-working-arabic-v2026.9.13:refs/remotes/origin/backup-working-arabic-v2026.9.13
+
+      - name: Build v2026.9.15 from exact v2026.9.13 backup
+        shell: bash
+        run: |
+          git show origin/backup-working-arabic-v2026.9.13:translation_ar.zip > base_v2026.9.13.zip
+          python - <<'PY'
+          import json
+          import shutil
+          import zipfile
+          from pathlib import Path
+
+          src = Path("base_v2026.9.13.zip")
+          work = Path(".repack_ar_v15")
+          out = Path("translation_ar_v2026.9.15.zip")
+
+          if work.exists():
+              shutil.rmtree(work)
+          work.mkdir()
+
+          with zipfile.ZipFile(src, "r") as zin:
+              names = set(zin.namelist())
+              ar_name = "translation_ar/ar.rpym" if "translation_ar/ar.rpym" in names else "ar.rpym"
+              ar_data = zin.read(ar_name)
+
+          mod = work / "translation_ar"
+          mod.mkdir()
+          (mod / "ar.rpym").write_bytes(ar_data)
+
+          manifest = {
+              "id": "translation_ar",
+              "name": "Translation: Arabic (100%)",
+              "version": "2026.9.15",
+              "description": "Built from the confirmed working v2026.9.13 backup. Adds Arabic-capable navigation/main-menu styles and the missing Language label.",
+              "game_version": "0.32.1",
+              "no_reload": True,
+              "image": "https://flagcdn.com/w640/eg.webp",
+              "language": "Arabic",
+              "language_code": "ar"
+          }
+          (mod / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=4) + "\n", encoding="utf-8")
+
+          lang_name = "\n".join([
+              "translate ar strings:",
+              "    old \"{#language_name}\"",
+              "    new \"العربية\"",
+              "    old \"Language\"",
+              "    new \"اللغة\"",
+              "",
+          ])
+          (mod / "lang_name.rpym").write_text(lang_name, encoding="utf-8")
+
+          config_lines = [
+              "# Arabic rendering compatibility layer for Kunoichi Trainer 0.32.1 / Ren'Py 8.4.1.",
+              "# v2026.9.15 built from confirmed working v2026.9.13 backup.",
+              "",
+              "translate ar python:",
+              "    from renpy.text.font import FontGroup",
+              "",
+              "    def _ar_font_group(base_font=\"DejaVuSans.ttf\"):",
+              "        if not isinstance(base_font, str):",
+              "            base_font = \"DejaVuSans.ttf\"",
+              "        return (",
+              "            FontGroup()",
+              "            .add(\"fonts/AdobeArabic-Regular.ttf\", 0x0600, 0x06ff)",
+              "            .add(base_font, None, None)",
+              "        )",
+              "",
+              "    for _font_attr in [",
+              "        \"text_font\",",
+              "        \"name_text_font\",",
+              "        \"interface_text_font\",",
+              "        \"button_text_font\",",
+              "        \"choice_button_text_font\",",
+              "        \"dialogue_text_font\",",
+              "        \"system_font\",",
+              "        \"hand_written_font\",",
+              "    ]:",
+              "        if hasattr(gui, _font_attr):",
+              "            try:",
+              "                setattr(gui, _font_attr, _ar_font_group(getattr(gui, _font_attr)))",
+              "            except Exception:",
+              "                pass",
+              "",
+              "translate ar style default:",
+              "    shaper \"harfbuzz\"",
+              "    reading_order \"wrtl\"",
+              "",
+              "translate ar style say_dialogue:",
+              "    textalign 1.0",
+              "",
+              "translate ar style say_label:",
+              "    textalign 1.0",
+              "",
+              "translate ar style choice_button_text:",
+              "    font gui.choice_button_text_font",
+              "    shaper \"harfbuzz\"",
+              "    textalign 1.0",
+              "",
+              "translate ar style button_text:",
+              "    font gui.button_text_font",
+              "    shaper \"harfbuzz\"",
+              "    textalign 1.0",
+              "",
+              "translate ar style navigation_button_text:",
+              "    font gui.button_text_font",
+              "    shaper \"harfbuzz\"",
+              "",
+              "translate ar style return_button_text:",
+              "    font gui.button_text_font",
+              "    shaper \"harfbuzz\"",
+              "",
+              "translate ar style game_menu_label_text:",
+              "    font gui.interface_text_font",
+              "    shaper \"harfbuzz\"",
+              "",
+              "translate ar style main_menu_button_text:",
+              "    font gui.button_text_font",
+              "    shaper \"harfbuzz\"",
+              "",
+              "translate ar style main_menu_text:",
+              "    font gui.interface_text_font",
+              "    shaper \"harfbuzz\"",
+              "",
+          ]
+          (mod / "config.rpym").write_text("\n".join(config_lines), encoding="utf-8")
+
+          with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+              for p in sorted(mod.iterdir()):
+                  zout.write(p, f"translation_ar/{p.name}")
+
+          with zipfile.ZipFile(out, "r") as check:
+              internal = json.loads(check.read("translation_ar/manifest.json").decode("utf-8"))
+              assert internal["version"] == "2026.9.15"
+              assert internal["game_version"] == "0.32.1"
+              assert "translation_ar/ar.rpym" in check.namelist()
+              assert "translation_ar/config.rpym" in check.namelist()
+              assert "translation_ar/lang_name.rpym" in check.namelist()
+          PY
+
+      - name: Commit cache-busting package filename
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add translation_ar_v2026.9.15.zip
+          git commit -m "Build Arabic mod v2026.9.15 from working v2026.9.13 backup"
+          git pull --rebase origin main
+          git push origin HEAD:main
