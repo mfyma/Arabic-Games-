@@ -4,8 +4,8 @@
         {
             "id": "translation_ar",
             "name": "Translation: Arabic (100%)",
-            "version": "2026.9.14",
-            "description": "Arabic translation for Kunoichi Trainer 0.32.1. Fixes Arabic glyphs in main-menu/navigation styles and adds the missing Language label translation.",
+            "version": "2026.9.15",
+            "description": "Recovery sync based exactly on verified working v2026.9.13. No functional Arabic changes; updater-connectivity test.",
             "game_version": "0.32.1",
             "no_reload": true,
             "image": "https://flagcdn.com/w640/eg.webp",
