@@ -1,0 +1,8 @@
+Original known-working backup binary blob SHA:
+76e218ad1a7b7f1b519a4859f046ae4a963501de
+
+Source branch:
+backup-working-arabic-v2026.9.13
+
+Source path:
+translation_ar.zip
