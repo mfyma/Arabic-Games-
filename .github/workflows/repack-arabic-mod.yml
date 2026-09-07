@@ -56,51 +56,54 @@ jobs:
           }
           (mod / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=4) + "\n", encoding="utf-8")
 
-          (mod / "lang_name.rpym").write_text(
-              'translate ar strings:\n'
-              '    old "{#language_name}"\n'
-              '    new "العربية"\n',
-              encoding="utf-8"
-          )
+          lang_name = "\n".join([
+              "translate ar strings:",
+              "    old \"{#language_name}\"",
+              "    new \"العربية\"",
+              "",
+          ])
+          (mod / "lang_name.rpym").write_text(lang_name, encoding="utf-8")
 
-          config = '''# Arabic rendering compatibility layer for Kunoichi Trainer 0.32.1 / Ren'Py 8.4.1.
-
-translate ar python:
-    from renpy.text.font import FontGroup
-
-    def _ar_font_group(base_font):
-        if not isinstance(base_font, str):
-            base_font = "DejaVuSans.ttf"
-
-        return (
-            FontGroup()
-            .add("fonts/AdobeArabic-Regular.ttf", 0x0600, 0x06ff)
-            .add(base_font, None, None)
-        )
-
-    gui.main_font = _ar_font_group(gui.main_font)
-    gui.text_font = _ar_font_group(gui.text_font)
-    gui.name_text_font = _ar_font_group(gui.name_text_font)
-    gui.interface_text_font = _ar_font_group(gui.interface_text_font)
-    gui.button_text_font = _ar_font_group(gui.button_text_font)
-    gui.choice_button_text_font = _ar_font_group(gui.choice_button_text_font)
-    gui.dialogue_text_font = _ar_font_group(gui.dialogue_text_font)
-    gui.hand_written_font = _ar_font_group(gui.hand_written_font)
-
-translate ar style default:
-    shaper "harfbuzz"
-    reading_order "wrtl"
-
-translate ar style say_dialogue:
-    textalign 1.0
-
-translate ar style say_label:
-    textalign 1.0
-
-translate ar style choice_button_text:
-    textalign 1.0
-'''
-          (mod / "config.rpym").write_text(config, encoding="utf-8")
+          config_lines = [
+              "# Arabic rendering compatibility layer for Kunoichi Trainer 0.32.1 / Ren'Py 8.4.1.",
+              "",
+              "translate ar python:",
+              "    from renpy.text.font import FontGroup",
+              "",
+              "    def _ar_font_group(base_font):",
+              "        if not isinstance(base_font, str):",
+              "            base_font = \"DejaVuSans.ttf\"",
+              "",
+              "        return (",
+              "            FontGroup()",
+              "            .add(\"fonts/AdobeArabic-Regular.ttf\", 0x0600, 0x06ff)",
+              "            .add(base_font, None, None)",
+              "        )",
+              "",
+              "    gui.main_font = _ar_font_group(gui.main_font)",
+              "    gui.text_font = _ar_font_group(gui.text_font)",
+              "    gui.name_text_font = _ar_font_group(gui.name_text_font)",
+              "    gui.interface_text_font = _ar_font_group(gui.interface_text_font)",
+              "    gui.button_text_font = _ar_font_group(gui.button_text_font)",
+              "    gui.choice_button_text_font = _ar_font_group(gui.choice_button_text_font)",
+              "    gui.dialogue_text_font = _ar_font_group(gui.dialogue_text_font)",
+              "    gui.hand_written_font = _ar_font_group(gui.hand_written_font)",
+              "",
+              "translate ar style default:",
+              "    shaper \"harfbuzz\"",
+              "    reading_order \"wrtl\"",
+              "",
+              "translate ar style say_dialogue:",
+              "    textalign 1.0",
+              "",
+              "translate ar style say_label:",
+              "    textalign 1.0",
+              "",
+              "translate ar style choice_button_text:",
+              "    textalign 1.0",
+              "",
+          ]
+          (mod / "config.rpym").write_text("\n".join(config_lines), encoding="utf-8")
 
           with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
               for p in sorted(mod.iterdir()):
