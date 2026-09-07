@@ -1,0 +1,17 @@
+{
+    "name": "Kunoichi Trainer Arabic",
+    "mods": [
+        {
+            "id": "translation_ar",
+            "name": "Translation: Arabic (Egyptian) - Safe RTL",
+            "version": "2026.9.9",
+            "description": "Full Egyptian Arabic translation with corrected RTL/HarfBuzz rendering.",
+            "game_version": "0.16.2",
+            "no_reload": true,
+            "image": "https://flagcdn.com/w640/eg.webp",
+            "language": "Egyptian Arabic",
+            "language_code": "ar",
+            "file_name": "translation_ar.zip"
+        }
+    ]
+}
