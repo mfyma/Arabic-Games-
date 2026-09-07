@@ -1,0 +1,135 @@
+name: Repack Kunoichi Arabic Mod
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/repack-arabic-mod.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Rebuild translation_ar.zip
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import shutil
+          import zipfile
+          from pathlib import Path
+
+          src = Path("translation_ar.zip")
+          work = Path(".repack_ar")
+          out = Path("translation_ar.new.zip")
+
+          if work.exists():
+              shutil.rmtree(work)
+          work.mkdir()
+
+          with zipfile.ZipFile(src, "r") as zin:
+              names = set(zin.namelist())
+              ar_name = "translation_ar/ar.rpym" if "translation_ar/ar.rpym" in names else "ar.rpym"
+              ar_data = zin.read(ar_name)
+
+          mod = work / "translation_ar"
+          mod.mkdir()
+          (mod / "ar.rpym").write_bytes(ar_data)
+
+          manifest = {
+              "id": "translation_ar",
+              "name": "Translation: Arabic (100%)",
+              "version": "2026.9.12",
+              "description": "Arabic translation for Kunoichi Trainer 0.32.1 with RTL/font compatibility layer.",
+              "game_version": "0.32.1",
+              "no_reload": True,
+              "image": "https://flagcdn.com/w640/eg.webp",
+              "language": "Arabic",
+              "language_code": "ar"
+          }
+          (mod / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=4) + "\n", encoding="utf-8")
+
+          (mod / "lang_name.rpym").write_text(
+              'translate ar strings:\n'
+              '    old "{#language_name}"\n'
+              '    new "العربية"\n',
+              encoding="utf-8"
+          )
+
+          config = '''# Arabic rendering compatibility layer for Kunoichi Trainer 0.32.1 / Ren'Py 8.4.1.
+
+translate ar python:
+    from renpy.text.font import FontGroup
+
+    def _ar_font_group(base_font):
+        if not isinstance(base_font, str):
+            base_font = "DejaVuSans.ttf"
+
+        return (
+            FontGroup()
+            .add("fonts/AdobeArabic-Regular.ttf", 0x0600, 0x06ff)
+            .add(base_font, None, None)
+        )
+
+    gui.main_font = _ar_font_group(gui.main_font)
+    gui.text_font = _ar_font_group(gui.text_font)
+    gui.name_text_font = _ar_font_group(gui.name_text_font)
+    gui.interface_text_font = _ar_font_group(gui.interface_text_font)
+    gui.button_text_font = _ar_font_group(gui.button_text_font)
+    gui.choice_button_text_font = _ar_font_group(gui.choice_button_text_font)
+    gui.dialogue_text_font = _ar_font_group(gui.dialogue_text_font)
+    gui.hand_written_font = _ar_font_group(gui.hand_written_font)
+
+translate ar style default:
+    shaper "harfbuzz"
+    reading_order "wrtl"
+
+translate ar style say_dialogue:
+    textalign 1.0
+
+translate ar style say_label:
+    textalign 1.0
+
+translate ar style choice_button_text:
+    textalign 1.0
+'''
+          (mod / "config.rpym").write_text(config, encoding="utf-8")
+
+          with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+              for p in sorted(mod.iterdir()):
+                  zout.write(p, f"translation_ar/{p.name}")
+
+          with zipfile.ZipFile(out, "r") as check:
+              expected = {
+                  "translation_ar/ar.rpym",
+                  "translation_ar/manifest.json",
+                  "translation_ar/lang_name.rpym",
+                  "translation_ar/config.rpym",
+              }
+              assert set(check.namelist()) == expected, check.namelist()
+              internal = json.loads(check.read("translation_ar/manifest.json").decode("utf-8"))
+              assert internal["version"] == "2026.9.12"
+              assert internal["game_version"] == "0.32.1"
+
+          out.replace(src)
+          PY
+
+      - name: Commit rebuilt ZIP
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add translation_ar.zip
+          if git diff --cached --quiet; then
+            echo "translation_ar.zip is already current"
+            exit 0
+          fi
+          git commit -m "Rebuild Arabic mod package for Kunoichi Trainer 0.32.1"
+          git push
