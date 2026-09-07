@@ -4,9 +4,9 @@
         {
             "id": "translation_ar",
             "name": "Translation: Arabic (100%)",
-            "version": "2026.9.11",
-            "description": "Arabic translation in official-style minimal package.",
-            "game_version": "0.16.2",
+            "version": "2026.9.12",
+            "description": "Arabic translation baseline for Kunoichi Trainer 0.32.1. Clean reinstall before RTL/font compatibility testing.",
+            "game_version": "0.32.1",
             "no_reload": true,
             "image": "https://flagcdn.com/w640/eg.webp",
             "language": "Arabic",
