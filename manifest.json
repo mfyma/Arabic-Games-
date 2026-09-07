@@ -4,8 +4,8 @@
         {
             "id": "translation_ar",
             "name": "Translation: Arabic (100%)",
-            "version": "2026.9.12",
-            "description": "Arabic translation baseline for Kunoichi Trainer 0.32.1. Clean reinstall before RTL/font compatibility testing.",
+            "version": "2026.9.13",
+            "description": "Arabic translation hotfix for Kunoichi Trainer 0.32.1. Removes dependency on missing gui.main_font and keeps RTL/font compatibility testing enabled.",
             "game_version": "0.32.1",
             "no_reload": true,
             "image": "https://flagcdn.com/w640/eg.webp",
