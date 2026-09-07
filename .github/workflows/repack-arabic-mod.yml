@@ -145,4 +145,5 @@ jobs:
             exit 0
           fi
           git commit -m "Rebuild Arabic mod package v2026.9.13"
-          git push
+          git pull --rebase origin main
+          git push origin HEAD:main
