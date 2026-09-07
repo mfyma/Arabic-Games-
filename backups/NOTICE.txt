@@ -1,0 +1,1 @@
+Known-working Arabic mod backup is preserved on branch backup-working-arabic-v2026.9.13.
