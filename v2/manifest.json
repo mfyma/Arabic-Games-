@@ -1,0 +1,17 @@
+{
+    "name": "Kunoichi Trainer Arabic v2",
+    "mods": [
+        {
+            "id": "translation_ar",
+            "name": "Translation: Arabic (100%)",
+            "version": "2026.9.16",
+            "description": "Verified v2026.9.13 base with missing main-menu translations and Arabic font support for navigation styles.",
+            "game_version": "0.32.1",
+            "no_reload": true,
+            "image": "https://flagcdn.com/w640/eg.webp",
+            "language": "Arabic",
+            "language_code": "ar",
+            "file_name": "translation_ar.zip"
+        }
+    ]
+}
