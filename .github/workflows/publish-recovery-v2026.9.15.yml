@@ -1,4 +1,4 @@
-name: Publish Arabic Recovery v2026.9.15
+name: Publish Arabic v2026.9.16
 
 on:
   push:
@@ -19,66 +19,80 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Rebuild from verified working backup
+      - name: Rebuild from verified working backup with menu fixes
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin backup-working-arabic-v2026.9.13
           git show origin/backup-working-arabic-v2026.9.13:translation_ar.zip > /tmp/backup-9.13.zip
 
-          rm -rf /tmp/ar-recovery
-          mkdir -p /tmp/ar-recovery
+          rm -rf /tmp/ar916
+          mkdir -p /tmp/ar916
           python - <<'PY'
           import json, zipfile
           from pathlib import Path
 
           src = Path('/tmp/backup-9.13.zip')
-          work = Path('/tmp/ar-recovery')
-          out = Path('translation_ar.zip')
+          work = Path('/tmp/ar916')
+          out = Path('v2/translation_ar.zip')
+          out.parent.mkdir(parents=True, exist_ok=True)
 
           with zipfile.ZipFile(src, 'r') as z:
               z.extractall(work)
 
           mod = work / 'translation_ar'
-          manifest_path = mod / 'manifest.json'
-          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-          manifest['version'] = '2026.9.15'
-          manifest['description'] = 'Recovery sync based exactly on the verified working v2026.9.13 build. No Arabic code or translation changes; version bump only to verify updater connectivity.'
-          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
+          ar_path = mod / 'ar.rpym'
+          ar_text = ar_path.read_text(encoding='utf-8')
+          ar_text = ar_text.replace('    old "Continue"\n    new "يكمل"', '    old "Continue"\n    new "متابعة"')
+          ar_path.write_text(ar_text, encoding='utf-8')
+
+          menu_fix = '''# Arabic main-menu/UI compatibility patch based on verified v2026.9.13.\n\ntranslate ar strings:\n    old "New game"\n    new "لعبة جديدة"\n\n    old "New Game"\n    new "لعبة جديدة"\n\n    old "Load"\n    new "تحميل"\n\n    old "Settings"\n    new "الإعدادات"\n\n    old "Gallery"\n    new "المعرض"\n\n    old "Help"\n    new "المساعدة"\n\n    old "Mods"\n    new "التعديلات"\n\n    old "Customization"\n    new "التخصيص"\n\n    old "Language"\n    new "اللغة"\n\n    old "Back"\n    new "رجوع"\n\n    old "Support"\n    new "الدعم"\n\ntranslate ar python:\n    for _style_name in [\n        "navigation_button_text",\n        "main_menu_button_text",\n        "game_menu_button_text",\n        "return_button_text",\n        "button_text",\n    ]:\n        try:\n            _st = getattr(style, _style_name)\n            _base = getattr(_st, "font", "DejaVuSans.ttf")\n            _st.font = _ar_font_group(_base)\n            _st.shaper = "harfbuzz"\n            _st.reading_order = "wrtl"\n        except Exception:\n            pass\n'''
+          (mod / 'menu_fix.rpym').write_text(menu_fix, encoding='utf-8')
+
+          inner_path = mod / 'manifest.json'
+          inner = json.loads(inner_path.read_text(encoding='utf-8'))
+          inner['version'] = '2026.9.16'
+          inner['description'] = 'Verified v2026.9.13 base with main-menu Arabic translation/font fixes.'
+          inner_path.write_text(json.dumps(inner, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
 
           with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
               for p in sorted(mod.rglob('*')):
                   if p.is_file():
                       z.write(p, p.relative_to(work).as_posix())
 
-          # Verify all functional files are byte-identical to the working backup.
-          with zipfile.ZipFile(src, 'r') as old, zipfile.ZipFile(out, 'r') as new:
-              for name in ['translation_ar/ar.rpym', 'translation_ar/config.rpym', 'translation_ar/lang_name.rpym']:
-                  assert old.read(name) == new.read(name), name
-              m = json.loads(new.read('translation_ar/manifest.json').decode('utf-8'))
-              assert m['version'] == '2026.9.15'
+          outer = {
+              'name': 'Kunoichi Trainer Arabic v2',
+              'mods': [{
+                  'id': 'translation_ar',
+                  'name': 'Translation: Arabic (100%)',
+                  'version': '2026.9.16',
+                  'description': 'Verified v2026.9.13 base with missing main-menu translations and Arabic font support for navigation styles.',
+                  'game_version': '0.32.1',
+                  'no_reload': True,
+                  'image': 'https://flagcdn.com/w640/eg.webp',
+                  'language': 'Arabic',
+                  'language_code': 'ar',
+                  'file_name': 'translation_ar.zip'
+              }]
+          }
+          Path('v2/manifest.json').write_text(json.dumps(outer, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
+
+          with zipfile.ZipFile(out, 'r') as z:
+              names = set(z.namelist())
+              assert 'translation_ar/ar.rpym' in names
+              assert 'translation_ar/config.rpym' in names
+              assert 'translation_ar/lang_name.rpym' in names
+              assert 'translation_ar/menu_fix.rpym' in names
+              assert 'translation_ar/manifest.json' in names
           PY
 
-          python - <<'PY'
-          import json
-          from pathlib import Path
-          p = Path('manifest.json')
-          data = json.loads(p.read_text(encoding='utf-8'))
-          mod = data['mods'][0]
-          mod['version'] = '2026.9.15'
-          mod['description'] = 'Recovery sync based exactly on verified working v2026.9.13. No functional Arabic changes; updater-connectivity test.'
-          mod['game_version'] = '0.32.1'
-          mod['file_name'] = 'translation_ar.zip'
-          p.write_text(json.dumps(data, ensure_ascii=False, indent=4) + '\n', encoding='utf-8')
-          PY
-
-      - name: Commit recovery package to same source URL
+      - name: Commit v2 package and fresh source URL
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add manifest.json translation_ar.zip
-          git commit -m "Publish recovery sync v2026.9.15 from working v2026.9.13 backup"
+          git add v2/manifest.json v2/translation_ar.zip
+          git commit -m "Publish Arabic v2026.9.16 from verified v2026.9.13 base"
           git pull --rebase origin main
           git push origin HEAD:main
